@@ -22,7 +22,7 @@ const findContact: ToolDefinition = {
         const input = FindContactInput.parse(raw)
         const companyId = axiomApi.getCompanyId()
         const res = await axiomApi.get<Envelope<unknown[]>>(
-            `/v1/companies/${companyId}/contacts?search=${encodeURIComponent(input.query)}`,
+            `/companies/${companyId}/contacts?search=${encodeURIComponent(input.query)}`,
         )
         return res.data
     },
@@ -40,7 +40,7 @@ const summarizeArAging: ToolDefinition = {
         SummarizeArAgingInput.parse(raw)
         const companyId = axiomApi.getCompanyId()
         const open = await axiomApi.get<Envelope<unknown>>(
-            `/v1/companies/${companyId}/reports/open-invoices`,
+            `/companies/${companyId}/reports/open-invoices`,
         )
         return open.data
     },
@@ -58,8 +58,8 @@ const listOpenInvoices: ToolDefinition = {
         const input = ListOpenInvoicesInput.parse(raw)
         const companyId = axiomApi.getCompanyId()
         const path = input.contactId
-            ? `/v1/companies/${companyId}/reports/open-invoices?contactId=${encodeURIComponent(input.contactId)}`
-            : `/v1/companies/${companyId}/reports/open-invoices`
+            ? `/companies/${companyId}/reports/open-invoices?contactId=${encodeURIComponent(input.contactId)}`
+            : `/companies/${companyId}/reports/open-invoices`
         const res = await axiomApi.get<Envelope<unknown>>(path)
         return res.data
     },
@@ -117,6 +117,20 @@ const GetReportInput = z.object({
     dateTo:   z.string().optional(),
 })
 
+// MCP-facing reportId → actual API path segment. Lets the public tool contract
+// stay stable while the backend uses its own naming.
+const REPORT_PATH_BY_ID: Record<string, string> = {
+    'profit-and-loss-cash-basis': 'profit-and-loss',
+    'balance-sheet':              'balance-sheet',
+    'income-statement':           'income-statement',
+    'general-ledger-detail':      'general-ledger',
+    'open-invoices':              'open-invoices',
+    'sales-by-customer':          'sales-by-customer',
+    'sales-by-item':              'sales-by-item',
+    'inventory-valuation':        'inventory-valuation',
+    'purchase-history':           'purchase-history',
+}
+
 const getReport: ToolDefinition = {
     name: 'get_report',
     description: 'Run a standard Axiom report and return its data.',
@@ -124,10 +138,11 @@ const getReport: ToolDefinition = {
     handler: async (raw) => {
         const input = GetReportInput.parse(raw)
         const companyId = axiomApi.getCompanyId()
+        const segment = REPORT_PATH_BY_ID[input.reportId]
         const params = new URLSearchParams()
         if (input.dateFrom) params.set('dateFrom', input.dateFrom)
         if (input.dateTo)   params.set('dateTo',   input.dateTo)
-        const path = `/v1/companies/${companyId}/reports/${input.reportId}` +
+        const path = `/companies/${companyId}/reports/${segment}` +
             (params.size ? `?${params.toString()}` : '')
         return await axiomApi.get(path)
     },

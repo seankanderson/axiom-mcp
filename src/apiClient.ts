@@ -54,10 +54,25 @@ export class AxiomApiClient {
 
     getCompanyId(): string {
         const cfg = loadConfig()
-        if (!cfg.companyId) {
-            throw new Error('No companyId is bound to this MCP install. Reinstall and pick a company.')
+        const fromToken = extractCompanyIdFromJwt(cfg.accessToken)
+        const companyId = cfg.companyId ?? fromToken
+        if (!companyId) {
+            throw new Error('No companyId is bound to this MCP install. Reinstall and pick a company on the consent screen.')
         }
-        return cfg.companyId
+        return companyId
+    }
+}
+
+function extractCompanyIdFromJwt(token: string): string | null {
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    try {
+        const payload = JSON.parse(
+            Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'),
+        ) as { companyId?: string }
+        return payload.companyId ?? null
+    } catch {
+        return null
     }
 }
 
