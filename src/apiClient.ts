@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
-import { refreshIfNeeded } from './auth.js'
 import { loadConfig } from './config.js'
+import { ensureAuthenticated } from './oauth.js'
+import { getRequestAuth } from './requestContext.js'
 
 /**
  * Thin HTTP client over Axiom's /api/v1 surface. Refreshes the access token
@@ -25,8 +26,7 @@ export class AxiomApiClient {
     }
 
     private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-        const cfg   = loadConfig()
-        const token = await refreshIfNeeded(cfg)
+        const { token, apiBaseUrl } = await this.resolveAuth()
 
         const headers: Record<string, string> = {
             Authorization:   `Bearer ${token}`,
@@ -37,7 +37,7 @@ export class AxiomApiClient {
             headers['Idempotency-Key'] = randomBytes(16).toString('hex')
         }
 
-        const res = await fetch(`${cfg.apiBaseUrl}${path}`, {
+        const res = await fetch(`${apiBaseUrl}${path}`, {
             method,
             headers,
             body: body ? JSON.stringify(body) : undefined,
@@ -52,7 +52,32 @@ export class AxiomApiClient {
         return await res.json() as T
     }
 
+    /**
+     * Resolves the bearer token + API base URL for the current call.
+     * - Remote connector: forward the per-request OAuth token (from request scope).
+     * - Local / stdio / .mcpb: load saved tokens, running the OAuth flow once if needed.
+     */
+    private async resolveAuth(): Promise<{ token: string; apiBaseUrl: string }> {
+        const ctx = getRequestAuth()
+        if (ctx) {
+            return {
+                token: ctx.accessToken,
+                apiBaseUrl: process.env.AXIOM_API_URL ?? 'http://localhost:8200/api',
+            }
+        }
+        const cfg = await ensureAuthenticated()
+        return { token: cfg.accessToken, apiBaseUrl: cfg.apiBaseUrl }
+    }
+
     getCompanyId(): string {
+        const ctx = getRequestAuth()
+        if (ctx) {
+            const companyId = ctx.companyId ?? extractCompanyIdFromJwt(ctx.accessToken)
+            if (!companyId) {
+                throw new Error('No companyId claim is present on the access token. Re-authorize and select a company.')
+            }
+            return companyId
+        }
         const cfg = loadConfig()
         const fromToken = extractCompanyIdFromJwt(cfg.accessToken)
         const companyId = cfg.companyId ?? fromToken

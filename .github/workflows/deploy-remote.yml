@@ -1,0 +1,55 @@
+name: Deploy Remote Connector
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'azure.yaml'
+      - 'infra/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-remote.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # OIDC login
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_CLIENT_ID:       ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID:       ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME:        ${{ vars.AZURE_ENV_NAME }}
+      AZURE_LOCATION:        ${{ vars.AZURE_LOCATION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install azd
+        uses: azure/setup-azd@v2
+
+      - name: Login to Azure (OIDC — no stored credentials)
+        run: |
+          azd auth login \
+            --client-id "$AZURE_CLIENT_ID" \
+            --federated-credential-provider github \
+            --tenant-id "$AZURE_TENANT_ID"
+
+      - name: Configure environment
+        run: |
+          azd env new "$AZURE_ENV_NAME" --no-prompt || azd env select "$AZURE_ENV_NAME"
+          azd env set AXIOM_API_URL "${{ vars.AXIOM_API_URL }}"
+
+      - name: Provision and deploy
+        run: azd up --no-prompt
+
+      - name: Print connector URL
+        run: |
+          echo "Connector endpoint: $(azd env get-value MCP_CONNECTOR_ENDPOINT)"

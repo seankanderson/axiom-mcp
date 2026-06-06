@@ -1,0 +1,13 @@
+# Azure Developer CLI configuration for the remote MCP connector.
+# https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/azd-schema
+name: axiom-mcp
+services:
+  mcp:
+    project: .
+    language: docker
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+infra:
+  provider: bicep
+  path: infra

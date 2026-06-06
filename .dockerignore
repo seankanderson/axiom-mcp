@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-mcpb
+mcpb-build
+.git
+.github
+.gitignore
+*.mcpb
+npm-debug.log*
+.vscode
+.idea
+README.md
+manifest.json
+scripts
+infra

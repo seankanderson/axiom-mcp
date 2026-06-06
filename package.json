@@ -1,5 +1,5 @@
 {
-  "name": "@axiom/mcp",
+  "name": "@axiom-billing/mcp",
   "version": "0.1.0",
   "description": "Model Context Protocol server for Axiom — exposes accounting tools to Claude Desktop, ChatGPT, and any MCP-capable AI client.",
   "type": "module",
@@ -8,19 +8,39 @@
     "axiom-mcp-install": "./dist/install.js"
   },
   "main": "./dist/server.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seankanderson/axiom-mcp.git"
+  },
+  "homepage": "https://github.com/seankanderson/axiom-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/seankanderson/axiom-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
     "install-client": "node dist/install.js",
     "test": "node --import tsx --test src/**/*.test.ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "pack:mcpb": "node scripts/pack-mcpb.mjs",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "jose": "^5.9.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^1.0.0",
     "@types/node": "^20.11.0",
+    "esbuild": "^0.24.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0"
   },

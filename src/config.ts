@@ -22,7 +22,7 @@ const CONFIG_PATH = join(CONFIG_DIR, 'config.json')
 export function loadConfig(): AxiomMcpConfig {
     if (!existsSync(CONFIG_PATH)) {
         throw new Error(
-            `Axiom MCP is not installed. Run 'npx @axiom/mcp install' first.\n` +
+            `Axiom MCP is not installed. Run 'npx @axiom-billing/mcp install' first.\n` +
             `Expected config at: ${CONFIG_PATH}`,
         )
     }
@@ -36,6 +36,10 @@ export function saveConfig(cfg: AxiomMcpConfig): void {
 
 export function configPath(): string {
     return CONFIG_PATH
+}
+
+export function configExists(): boolean {
+    return existsSync(CONFIG_PATH)
 }
 
 export function ensureConfigDir(): void {

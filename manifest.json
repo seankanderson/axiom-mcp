@@ -1,0 +1,64 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.3.schema.json",
+  "manifest_version": "0.3",
+  "name": "axiom-mcp",
+  "display_name": "Axiom",
+  "version": "0.1.0",
+  "description": "Read reports, suggest reconciliations, and draft invoices in your Axiom accounting deployment.",
+  "long_description": "Connects Claude to your Axiom double-entry accounting system. Read-only tools surface contacts, open invoices, AR aging, ledger detail, and standard reports. Write tools are approval-gated — they submit to a per-company approval queue that a human admin approves in the Axiom UI before anything is written. On first use the extension opens your browser to authorize with your Axiom deployment (OAuth + PKCE); tokens are stored locally with file mode 600.",
+  "author": {
+    "name": "Axiom",
+    "url": "https://axiom-billing.com"
+  },
+  "homepage": "https://github.com/seankanderson/axiom-mcp",
+  "documentation": "https://github.com/seankanderson/axiom-mcp#readme",
+  "support": "https://github.com/seankanderson/axiom-mcp/issues",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "AXIOM_API_URL": "${user_config.api_url}",
+        "AXIOM_SCOPES": "${user_config.scopes}"
+      }
+    }
+  },
+  "user_config": {
+    "api_url": {
+      "type": "string",
+      "title": "Axiom API URL",
+      "description": "Base URL of your Axiom deployment's API, e.g. https://your-axiom.example.com/api",
+      "default": "http://localhost:8200/api",
+      "required": true
+    },
+    "scopes": {
+      "type": "string",
+      "title": "OAuth scopes",
+      "description": "Space-separated scopes to request. The default grants read access plus offline refresh.",
+      "default": "read:ledger read:invoices read:contacts read:reports read:bank-transactions offline_access",
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "find_contact", "description": "Fuzzy match contacts." },
+    { "name": "summarize_ar_aging", "description": "Open AR with aging buckets." },
+    { "name": "list_open_invoices", "description": "Unpaid invoices." },
+    { "name": "list_unmatched_bank_transactions", "description": "Bank transactions awaiting reconciliation." },
+    { "name": "explain_ledger_entry", "description": "Full debit/credit breakdown of a transaction." },
+    { "name": "get_report", "description": "Run any of the standard Axiom reports." },
+    { "name": "create_invoice_draft", "description": "Propose a draft invoice (approval-gated)." },
+    { "name": "record_payment", "description": "Propose a payment row (approval-gated)." },
+    { "name": "propose_reconciliation", "description": "Suggest a bank-transaction match." }
+  ],
+  "keywords": ["accounting", "bookkeeping", "invoices", "ledger", "axiom"],
+  "license": "SEE LICENSE IN README.md",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}

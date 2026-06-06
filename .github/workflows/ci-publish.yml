@@ -1,0 +1,138 @@
+name: CI & Publish
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:   # allow manual publish from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        # The test script globs src/**/*.test.ts; skip cleanly when no tests exist yet.
+        run: |
+          if ls src/**/*.test.ts >/dev/null 2>&1; then
+            npm test
+          else
+            echo "No test files found (src/**/*.test.ts) — skipping."
+          fi
+
+  publish:
+    name: Publish to npm
+    # Only on a real push to main (or manual dispatch) — never on PRs.
+    if: github.event_name != 'pull_request'
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for npm Trusted Publishing (OIDC) + provenance
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted Publishing requires npm >= 11.5.1; Node 22 ships an older npm.
+      - name: Upgrade npm (Trusted Publishing support)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Skip if this version is already published
+        id: check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$NAME@$VERSION already on npm — skipping publish. Bump the version to release."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "Publishing $NAME@$VERSION"
+          fi
+
+      - name: Publish (OIDC Trusted Publishing, with provenance)
+        if: steps.check.outputs.published == 'false'
+        run: npm publish
+
+  mcpb:
+    name: Build Desktop Extension (.mcpb)
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to create/attach the GitHub Release on push to main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build .mcpb bundle
+        run: npm run pack:mcpb
+
+      - name: Upload .mcpb as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: axiom-mcp-mcpb
+          path: dist-mcpb/*.mcpb
+          if-no-files-found: error
+
+      - name: Read version
+        id: ver
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # On a real push to main, publish the bundle as a versioned GitHub Release
+      # so it has a stable download URL for one-click install. Skips if the tag
+      # already exists (no clobbering a shipped release).
+      - name: Create GitHub Release with .mcpb
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: v${{ steps.ver.outputs.version }}
+          files: dist-mcpb/*.mcpb
+          fail_on_unmatched_files: true
+          make_latest: true
