@@ -9,6 +9,9 @@ param axiomApiUrl string
 @description('Container target port — must match the Dockerfile EXPOSE / PORT')
 param targetPort int = 8210
 
+@description('Custom domain to bind with a free managed TLS cert, e.g. mcp.axiom-billing.com. Empty = default ACA domain only. The CNAME and asuid.<domain> TXT (= the managed env customDomainVerificationId) MUST already exist before deploy or cert issuance fails.')
+param customDomain string = ''
+
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
 var registryName = 'craxiommcp${resourceToken}'
@@ -70,9 +73,26 @@ resource managedEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
-// Public URL is deterministic from the environment's default domain, so we can
-// pass the connector's own resource URL to itself as an env var at deploy time.
-var publicUrl = 'https://${appName}.${managedEnv.properties.defaultDomain}'
+// Free ACA-managed TLS certificate for the custom domain. Issuance needs the
+// asuid.<domain> TXT (= managedEnv.customDomainVerificationId) and the CNAME to
+// already exist; without them this resource fails to provision.
+resource customDomainCert 'Microsoft.App/managedEnvironments/managedCertificates@2024-03-01' = if (!empty(customDomain)) {
+  parent: managedEnv
+  name: 'cert-${replace(customDomain, '.', '-')}'
+  location: location
+  tags: tags
+  properties: {
+    subjectName: customDomain
+    domainControlValidation: 'CNAME'
+  }
+}
+
+// The connector advertises this as its OAuth `resource` and validates token
+// audience against it, so it must match the host clients actually connect to.
+// Prefer the custom domain; fall back to the default ACA domain when unset.
+var publicUrl = empty(customDomain)
+  ? 'https://${appName}.${managedEnv.properties.defaultDomain}'
+  : 'https://${customDomain}'
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
@@ -91,6 +111,14 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: targetPort
         transport: 'auto'
         allowInsecure: false
+        // Declared in IaC so `azd up` stops stripping the binding on every deploy.
+        customDomains: empty(customDomain) ? [] : [
+          {
+            name: customDomain
+            bindingType: 'SniEnabled'
+            certificateId: customDomainCert.id
+          }
+        ]
       }
       registries: [
         {

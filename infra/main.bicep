@@ -15,6 +15,9 @@ param axiomApiUrl string
 @description('Resource group to deploy into. Defaults to the shared "axiom" group used by axiom-api.')
 param resourceGroupName string = 'axiom'
 
+@description('Custom domain for the connector; a free managed TLS cert is auto-provisioned and bound. Empty = default ACA domain only. DNS (CNAME + asuid TXT) must exist first.')
+param customDomain string = 'mcp.axiom-billing.com'
+
 var resourceToken = toLower(uniqueString(subscription().subscriptionId, environmentName, location, 'axiom-mcp'))
 var tags = { 'azd-env-name': environmentName, project: 'axiom-mcp' }
 
@@ -31,6 +34,7 @@ module resources 'resources.bicep' = {
     tags: tags
     resourceToken: resourceToken
     axiomApiUrl: axiomApiUrl
+    customDomain: customDomain
   }
 }
 
