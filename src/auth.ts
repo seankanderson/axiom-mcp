@@ -31,18 +31,20 @@ export async function registerClient(
     const res = await fetch(registrationEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // RFC 7591 — snake_case members. Must match the spec so a hosted Axiom
+        // also accepts non-Axiom clients identically.
         body: JSON.stringify({
-            clientName,
-            redirectUris: [redirectUri],
-            grantTypes: ['authorization_code', 'refresh_token'],
-            tokenEndpointAuthMethod: 'none',
+            client_name: clientName,
+            redirect_uris: [redirectUri],
+            grant_types: ['authorization_code', 'refresh_token'],
+            token_endpoint_auth_method: 'none',
         }),
     })
     if (!res.ok) {
         throw new Error(`Dynamic client registration failed: ${res.status} ${await res.text()}`)
     }
-    const json = await res.json() as { clientId: string }
-    return { clientId: json.clientId }
+    const json = await res.json() as { client_id: string }
+    return { clientId: json.client_id }
 }
 
 export function generatePkcePair(): { verifier: string; challenge: string } {
