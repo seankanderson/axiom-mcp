@@ -60,9 +60,11 @@ export class RemoteAuth {
     protectedResourceMetadata(): Record<string, unknown> {
         return {
             resource: this.resourceUrl,
-            authorization_servers: [
-                `${this.apiBaseUrl.replace(/\/$/, '')}/.well-known/oauth-authorization-server`,
-            ],
+            // RFC 9728/8414: this is the AS *issuer identifier* (base URL). The
+            // client appends `/.well-known/oauth-authorization-server` itself —
+            // advertising the full metadata URL here makes discovery construct a
+            // doubled `.well-known` path and the connector fails to register.
+            authorization_servers: [this.apiBaseUrl.replace(/\/$/, '')],
             scopes_supported: this.scopesSupported,
             bearer_methods_supported: ['header'],
         }
