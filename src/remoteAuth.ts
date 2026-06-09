@@ -43,9 +43,15 @@ export class RemoteAuth {
     /** Validates a raw bearer token. Throws if invalid/expired/wrong audience. */
     async validateBearer(token: string): Promise<RequestAuth> {
         await this.ensureKeys()
+        // Accept the resource both with and without a trailing slash: now that the
+        // endpoint is the subdomain root, some clients canonicalize the empty path
+        // to "/", which would otherwise mint an aud that fails an exact match.
+        const audiences = this.resourceUrl.endsWith('/')
+            ? [this.resourceUrl, this.resourceUrl.replace(/\/$/, '')]
+            : [this.resourceUrl, `${this.resourceUrl}/`]
         const { payload } = await jwtVerify(token, this.jwks!, {
             issuer: this.issuer!,
-            audience: this.resourceUrl,
+            audience: audiences,
         })
         const scope = typeof payload.scope === 'string' ? payload.scope : ''
         const companyId = typeof payload.companyId === 'string' ? payload.companyId : null

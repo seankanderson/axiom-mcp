@@ -42,4 +42,4 @@ module resources 'resources.bicep' = {
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = resources.outputs.registryLoginServer
 output AZURE_RESOURCE_GROUP string = rg.name
 output MCP_PUBLIC_URL string = resources.outputs.publicUrl
-output MCP_CONNECTOR_ENDPOINT string = '${resources.outputs.publicUrl}/mcp'
+output MCP_CONNECTOR_ENDPOINT string = resources.outputs.publicUrl

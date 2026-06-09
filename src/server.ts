@@ -199,7 +199,12 @@ async function startHttp(server: Server, port: number): Promise<void> {
     const remoteMode = process.env.AXIOM_MCP_REMOTE === 'true'
     const apiBaseUrl = process.env.AXIOM_API_URL ?? 'http://localhost:8200/api'
     const publicUrl  = (process.env.MCP_PUBLIC_URL ?? `http://127.0.0.1:${port}`).replace(/\/$/, '')
-    const resourceUrl = `${publicUrl}/mcp`
+    // Serve the MCP endpoint at the subdomain root (e.g. https://mcp.host) rather
+    // than a /mcp sub-path. This is the OAuth resource/audience identifier and the
+    // URL users enter in the client; it must match the `resource` advertised in
+    // protected-resource metadata and the `aud` validated on bearers — all three
+    // derive from here, so changing this one value moves the whole endpoint.
+    const resourceUrl = publicUrl
     const remoteAuth = remoteMode ? new RemoteAuth(apiBaseUrl, resourceUrl, SUPPORTED_SCOPES) : null
     const resourceMetadataUrl = `${publicUrl}/.well-known/oauth-protected-resource`
     const allowedOrigin = process.env.MCP_ALLOWED_ORIGINS ?? '*'
@@ -228,18 +233,7 @@ async function startHttp(server: Server, port: number): Promise<void> {
             return
         }
 
-        if (req.url === '/' || req.url === '/health') {
-            res.writeHead(200, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({
-                server: SERVER_NAME,
-                version: SERVER_VERSION,
-                transport: 'streamable-http',
-                endpoint: '/mcp',
-                remote: remoteMode,
-            }))
-            return
-        }
-
+        // Discovery + health must be matched before the root MCP route below.
         if (req.url?.startsWith('/.well-known/oauth-protected-resource')) {
             if (!remoteAuth) {
                 res.writeHead(404, { 'Content-Type': 'text/plain' })
@@ -251,7 +245,21 @@ async function startHttp(server: Server, port: number): Promise<void> {
             return
         }
 
-        if (req.url?.startsWith('/mcp')) {
+        if (req.url?.startsWith('/health')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({
+                server: SERVER_NAME,
+                version: SERVER_VERSION,
+                transport: 'streamable-http',
+                endpoint: '/',
+                remote: remoteMode,
+            }))
+            return
+        }
+
+        // MCP transport at the root (`/`); `/mcp` kept as a back-compat alias.
+        const path = (req.url ?? '/').split('?')[0]
+        if (path === '/' || path.startsWith('/mcp')) {
             void handleMcp(req, res)
             return
         }
@@ -293,7 +301,7 @@ async function startHttp(server: Server, port: number): Promise<void> {
     }
 
     http.listen(listenPort, bindHost, () => {
-        console.log(`${SERVER_NAME} v${SERVER_VERSION} listening on http://${bindHost}:${listenPort}/mcp (remote=${remoteMode})`)
+        console.log(`${SERVER_NAME} v${SERVER_VERSION} listening on http://${bindHost}:${listenPort}/ (remote=${remoteMode})`)
         logger.info(`${SERVER_NAME} v${SERVER_VERSION} ready`, { transport: 'streamable-http', port: listenPort, remote: remoteMode })
     })
 }
