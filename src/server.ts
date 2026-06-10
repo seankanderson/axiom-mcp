@@ -245,6 +245,36 @@ async function startHttp(server: Server, port: number): Promise<void> {
             return
         }
 
+        // RFC 8414 AS metadata — served here (at the MCP server's domain root) so
+        // that clients following the 2025-03-26 spec, which derives the auth base URL
+        // by discarding the MCP server's path, find it at the expected location.
+        // The issuer MUST be the public MCP URL (not the API base URL) so that RFC 8414
+        // issuer-match validation passes; all operative endpoints still live on the API.
+        if (req.url?.startsWith('/.well-known/oauth-authorization-server')) {
+            if (!remoteAuth) {
+                res.writeHead(404, { 'Content-Type': 'text/plain' })
+                res.end('Not found')
+                return
+            }
+            const base = apiBaseUrl.replace(/\/$/, '')
+            const asMetadata = {
+                issuer:                               publicUrl,
+                authorization_endpoint:               `${base}/oauth/authorize`,
+                token_endpoint:                       `${base}/oauth/token`,
+                revocation_endpoint:                  `${base}/oauth/revoke`,
+                registration_endpoint:                `${base}/oauth/register`,
+                jwks_uri:                             `${base}/.well-known/jwks.json`,
+                response_types_supported:             ['code'],
+                grant_types_supported:                ['authorization_code', 'refresh_token'],
+                token_endpoint_auth_methods_supported: ['none'],
+                code_challenge_methods_supported:     ['S256'],
+                scopes_supported:                     SUPPORTED_SCOPES,
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify(asMetadata))
+            return
+        }
+
         if (req.url?.startsWith('/health')) {
             res.writeHead(200, { 'Content-Type': 'application/json' })
             res.end(JSON.stringify({

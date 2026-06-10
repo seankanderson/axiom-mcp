@@ -66,11 +66,14 @@ export class RemoteAuth {
     protectedResourceMetadata(): Record<string, unknown> {
         return {
             resource: this.resourceUrl,
-            // RFC 9728/8414: this is the AS *issuer identifier* (base URL). The
-            // client appends `/.well-known/oauth-authorization-server` itself —
-            // advertising the full metadata URL here makes discovery construct a
-            // doubled `.well-known` path and the connector fails to register.
-            authorization_servers: [this.apiBaseUrl.replace(/\/$/, '')],
+            // RFC 9728: this is the AS *issuer identifier* (base URL). Clients
+            // append `/.well-known/oauth-authorization-server` themselves.
+            // We advertise the MCP server's own public URL here (not the API base URL)
+            // so that RFC 8414 issuer-match validation passes: clients fetching
+            // `/.well-known/oauth-authorization-server` from this host will receive an
+            // `issuer` equal to this URL, satisfying the spec's requirement that issuer
+            // == the prefix from which metadata was fetched.
+            authorization_servers: [this.resourceUrl.replace(/\/$/, '')],
             scopes_supported: this.scopesSupported,
             bearer_methods_supported: ['header'],
         }
