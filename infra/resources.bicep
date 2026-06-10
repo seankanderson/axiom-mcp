@@ -12,6 +12,9 @@ param targetPort int = 8210
 @description('Custom domain to bind with a free managed TLS cert, e.g. mcp.axiom-billing.com. Empty = default ACA domain only. The CNAME and asuid.<domain> TXT (= the managed env customDomainVerificationId) MUST already exist before deploy or cert issuance fails.')
 param customDomain string = ''
 
+@description('Managed-certificate resource name to use for the custom domain. Azure keys managed certs by subject name per environment and rejects a second one (DuplicateManagedCertificateInEnvironment), so when a cert for this subject already exists — e.g. the one auto-named by an earlier portal "add custom domain" binding — this MUST match that exact name or every `azd up` fails at provisioning. Default adopts the cert provisioned 2026-06-07; leave empty for a clean environment to derive a name from the domain.')
+param customDomainCertName string = 'mcp.axiom-billing.com-cae-axio-260607002435'
+
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
 var registryName = 'craxiommcp${resourceToken}'
@@ -78,7 +81,7 @@ resource managedEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
 // already exist; without them this resource fails to provision.
 resource customDomainCert 'Microsoft.App/managedEnvironments/managedCertificates@2024-03-01' = if (!empty(customDomain)) {
   parent: managedEnv
-  name: 'cert-${replace(customDomain, '.', '-')}'
+  name: empty(customDomainCertName) ? 'cert-${replace(customDomain, '.', '-')}' : customDomainCertName
   location: location
   tags: tags
   properties: {
