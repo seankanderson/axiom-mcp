@@ -11,6 +11,23 @@ import type { RequestAuth } from './requestContext.js'
  * indicator, RFC 8707). We require `aud === RESOURCE_URL` here, then forward the
  * same bearer to the Axiom API — which accepts it because its user-token validator
  * sets ValidateAudience=false (see axiom-api JwtService.ValidateToken).
+ *
+ * ⚠️  KEY ROTATION — what breaks and how to recover ⚠️
+ *
+ * The API signs OAuth tokens with an RSA key configured via OAuthSigningPrivateKeyPem
+ * (see axiom-api/services/OAuthKeyProvider.cs). This server caches the JWKS fetched
+ * from /.well-known/jwks.json at startup (see ensureKeys below). If the API's signing
+ * key is rotated:
+ *
+ *   1. All previously-issued access tokens and refresh tokens are immediately invalid.
+ *   2. This MCP server must be restarted (or redeployed) so the in-memory JWKS cache
+ *      is cleared and it fetches the new public key. A running container will continue
+ *      rejecting tokens signed with the new key until it restarts.
+ *   3. Every MCP client (e.g. Claude) that stored tokens must re-authorize:
+ *      remove the Axiom integration, re-add it, and complete the OAuth/PKCE browser flow.
+ *
+ * See axiom-api/app-context/authentication-and-authorization.md §OAuth Signing Key
+ * for the full rotation procedure.
  */
 export class RemoteAuth {
     private jwks: JWTVerifyGetKey | null = null
