@@ -34,6 +34,19 @@ const SERVER_NAME    = 'axiom-mcp'
 const SERVER_VERSION = '0.1.0'
 
 // Scopes advertised in protected-resource metadata (matches the install defaults).
+//
+// ⚠️  KEEP IN SYNC — this list MUST match OAuthScopes.AllSupported in
+//     axiom-api/api/oauth/OAuthDiscoveryEndpoints.cs
+//
+// Adding a scope here without adding it there causes the API's /oauth/authorize
+// to return `invalid_scope` and Claude's entire OAuth flow to silently fail.
+// The reverse also matters: a scope in AllSupported but not here won't appear
+// in the MCP server's discovery doc and won't be requested by clients.
+//
+// When you add a scope:
+//   1. Add it here.
+//   2. Add it to OAuthScopes in OAuthDiscoveryEndpoints.cs (AllSupported + ConnectorEligible if applicable).
+//   3. Add it to SCOPE_DESCRIPTIONS in axiom-ui/src/pages/OAuthConsentPage.tsx.
 const SUPPORTED_SCOPES = [
     'read:company',
     'read:contacts', 'write:contacts',
