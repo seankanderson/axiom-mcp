@@ -7,6 +7,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import {
     CallToolRequestSchema,
     GetPromptRequestSchema,
+    InitializedNotificationSchema,
     ListPromptsRequestSchema,
     ListResourcesRequestSchema,
     ListResourceTemplatesRequestSchema,
@@ -33,8 +34,14 @@ const SERVER_VERSION = '0.1.0'
 
 // Scopes advertised in protected-resource metadata (matches the install defaults).
 const SUPPORTED_SCOPES = [
-    'read:ledger', 'read:invoices', 'read:contacts', 'read:reports',
-    'read:bank-transactions', 'offline_access',
+    'read:company',
+    'read:contacts', 'write:contacts',
+    'read:inventory', 'write:inventory',
+    'read:ledger',
+    'read:invoices', 'write:invoices',
+    'read:reports',
+    'read:bank-transactions',
+    'offline_access',
 ]
 
 /**
@@ -66,6 +73,14 @@ function buildServer(): Server {
             },
         },
     )
+
+    // After handshake completes, push a tools/list_changed notification so the
+    // client always re-fetches the current tool list (handles server restarts
+    // without requiring a manual disconnect/reconnect in the MCP client).
+    server.setNotificationHandler(InitializedNotificationSchema, async () => {
+        await server.notification({ method: 'notifications/tools/list_changed' })
+        logger.info('sent notifications/tools/list_changed after client initialized')
+    })
 
     // ── tools ──────────────────────────────────────────────────────────────
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
