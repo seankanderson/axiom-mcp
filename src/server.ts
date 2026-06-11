@@ -16,6 +16,7 @@ import {
     SetLevelRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { zodToJsonSchema } from './zodToJsonSchema.js'
+import { LOGO_SVG } from './logo.js'
 import { ALL_TOOLS } from './tools/index.js'
 import {
     STATIC_RESOURCES,
@@ -220,7 +221,11 @@ async function startHttp(server: Server, port: number): Promise<void> {
     // protected-resource metadata and the `aud` validated on bearers — all three
     // derive from here, so changing this one value moves the whole endpoint.
     const resourceUrl = publicUrl
-    const remoteAuth = remoteMode ? new RemoteAuth(apiBaseUrl, resourceUrl, SUPPORTED_SCOPES) : null
+    const displayName = process.env.MCP_DISPLAY_NAME ?? 'Axiom Accounting'
+    const logoUri     = process.env.MCP_LOGO_URI     ?? `${publicUrl}/logo.svg`
+    const remoteAuth = remoteMode
+        ? new RemoteAuth(apiBaseUrl, resourceUrl, SUPPORTED_SCOPES, displayName, logoUri)
+        : null
     const resourceMetadataUrl = `${publicUrl}/.well-known/oauth-protected-resource`
     const allowedOrigin = process.env.MCP_ALLOWED_ORIGINS ?? '*'
     const bindHost = remoteMode ? '0.0.0.0' : '127.0.0.1'
@@ -302,8 +307,22 @@ async function startHttp(server: Server, port: number): Promise<void> {
             return
         }
 
-        // MCP transport at the root (`/`); `/mcp` kept as a back-compat alias.
+        // Branding — serve the Axiom SVG logo so Claude and other MCP clients can
+        // display the app icon in the connector list. /favicon.ico redirects here
+        // as a fallback for clients that use domain favicon discovery.
         const path = (req.url ?? '/').split('?')[0]
+        if (path === '/logo.svg') {
+            res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' })
+            res.end(LOGO_SVG)
+            return
+        }
+        if (path === '/favicon.ico') {
+            res.writeHead(302, { Location: '/logo.svg' })
+            res.end()
+            return
+        }
+
+        // MCP transport at the root (`/`); `/mcp` kept as a back-compat alias.
         if (path === '/' || path.startsWith('/mcp')) {
             void handleMcp(req, res)
             return

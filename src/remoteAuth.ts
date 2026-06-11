@@ -22,6 +22,8 @@ export class RemoteAuth {
         /** This server's canonical MCP endpoint, e.g. https://host/mcp — the token audience. */
         private readonly resourceUrl: string,
         private readonly scopesSupported: string[],
+        private readonly displayName?: string,
+        private readonly logoUri?: string,
     ) {}
 
     /** Lazily fetch the AS metadata (issuer + jwks_uri) and build a cached JWKS. */
@@ -76,6 +78,9 @@ export class RemoteAuth {
             authorization_servers: [this.resourceUrl.replace(/\/$/, '')],
             scopes_supported: this.scopesSupported,
             bearer_methods_supported: ['header'],
+            // Branding — Claude and other MCP clients display these in the connector list.
+            ...(this.displayName && { display_name: this.displayName }),
+            ...(this.logoUri     && { logo_uri:     this.logoUri }),
         }
     }
 }
