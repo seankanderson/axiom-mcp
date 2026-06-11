@@ -1,32 +1,13 @@
 import { z } from 'zod'
 import { axiomApi, Envelope } from '../apiClient.js'
+import { INVENTORY_TOOLS } from './inventory.js'
+import { CONTACT_TOOLS } from './contacts.js'
+import { COMPANY_TOOLS } from './company.js'
 
-export interface ToolDefinition {
-    name:        string
-    description: string
-    inputSchema: z.ZodType
-    handler:     (input: unknown) => Promise<unknown>
-}
+export type { ToolDefinition } from './types.js'
+import type { ToolDefinition } from './types.js'
 
 // ── Read tools (v1) ─────────────────────────────────────────────────────────
-
-const FindContactInput = z.object({
-    query: z.string().describe('Substring to match against contact name or email.'),
-})
-
-const findContact: ToolDefinition = {
-    name: 'find_contact',
-    description: 'Find contacts (customers / suppliers) by name or email substring.',
-    inputSchema: FindContactInput,
-    handler: async (raw) => {
-        const input = FindContactInput.parse(raw)
-        const companyId = axiomApi.getCompanyId()
-        const res = await axiomApi.get<Envelope<unknown[]>>(
-            `/companies/${companyId}/contacts?search=${encodeURIComponent(input.query)}`,
-        )
-        return res.data
-    },
-}
 
 const SummarizeArAgingInput = z.object({
     asOfDate: z.string().optional().describe('Optional ISO date; defaults to today.'),
@@ -219,7 +200,11 @@ const proposeReconciliation: ToolDefinition = {
 }
 
 export const ALL_TOOLS: ToolDefinition[] = [
-    findContact,
+    // Company, contacts, inventory (feature modules)
+    ...COMPANY_TOOLS,
+    ...CONTACT_TOOLS,
+    ...INVENTORY_TOOLS,
+    // Ledger, reports, invoices, bank reconciliation
     summarizeArAging,
     listOpenInvoices,
     listUnmatchedBankTransactions,

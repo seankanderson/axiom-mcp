@@ -73,6 +73,19 @@ const contactTemplate: TemplatedResource = {
         await axiomApi.get(`/companies/${companyId}/contacts/${params.contactId}`),
 }
 
+const inventoryTemplate: TemplatedResource = {
+    uriTemplate: 'axiom://inventory/{itemId}',
+    name:        'Inventory item (templated)',
+    description: 'A single inventory item by id. Construct the URI after a `list_inventory` call returns the id.',
+    mimeType:    'application/json',
+    match: (uri) => {
+        const m = /^axiom:\/\/inventory\/([^/]+)$/.exec(uri)
+        return m ? { itemId: m[1] } : null
+    },
+    read: async (companyId, params) =>
+        await axiomApi.get(`/companies/${companyId}/inventory/${params.itemId}`),
+}
+
 const ledgerTemplate: TemplatedResource = {
     uriTemplate: 'axiom://ledger/{transactionId}',
     name:        'Ledger transaction (templated)',
@@ -105,6 +118,7 @@ export const STATIC_RESOURCES: StaticResource[] = [
 
 export const TEMPLATED_RESOURCES: TemplatedResource[] = [
     contactTemplate,
+    inventoryTemplate,
     ledgerTemplate,
 ]
 
